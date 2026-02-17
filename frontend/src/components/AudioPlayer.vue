@@ -1,18 +1,23 @@
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch } from 'vue'
 import axios from 'axios'
 import { useI18n } from '../composables/useI18n'
+import appConfig from '../config.js'
 
 const props = defineProps({
   show: Boolean,
   recording: Object,
-  ccrdId: String
+  ccrdId: String,
+  autoTranscribe: {
+    type: Boolean,
+    default: false
+  }
 })
 
 const emit = defineEmits(['close', 'stop', 'transcribed'])
 
 const { t } = useI18n()
-const API_URL = '/api'
+const API_URL = appConfig.apiUrl
 
 const isPlaying = ref(false)
 const isPaused = ref(false)
@@ -21,17 +26,25 @@ const duration = ref(0)
 const isLoading = ref(false)
 const isTranscribing = ref(false)
 const transcription = ref('')
+const fileMissing = ref(false)
 let audio = null
 
 watch(() => props.show, async (newVal) => {
   if (newVal && props.ccrdId) {
     transcription.value = ''
+    fileMissing.value = false
     await initAudio()
     await loadTranscription()
   }
 })
 
 async function loadTranscription() {
+  const hasExistingTranscription = props.recording?.transcribed === 'Yes'
+  
+  if (!hasExistingTranscription && !props.autoTranscribe) {
+    return
+  }
+  
   isTranscribing.value = true
   try {
     const token = localStorage.getItem('token')
@@ -43,6 +56,9 @@ async function loadTranscription() {
     transcription.value = response.data.transcription || ''
     emit('transcribed', { ccrdId: props.ccrdId, transcription: transcription.value })
   } catch (e) {
+    if (e.response?.status === 404 || e.response?.data?.detail?.includes('not found')) {
+      fileMissing.value = true
+    }
     console.error('Failed to transcribe:', e)
     transcription.value = ''
   } finally {
@@ -57,6 +73,7 @@ async function initAudio() {
   }
   
   isLoading.value = true
+  fileMissing.value = false
   try {
     const token = localStorage.getItem('token')
     const response = await axios.get(`${API_URL}/download/${props.ccrdId}`, {
@@ -69,19 +86,24 @@ async function initAudio() {
     
     audio = new Audio(url)
     audio.addEventListener('loadedmetadata', () => {
+      if (!audio) return
       duration.value = audio.duration
     })
     audio.addEventListener('timeupdate', () => {
+      if (!audio) return
       currentTime.value = audio.currentTime
     })
     audio.addEventListener('ended', () => {
+      if (!audio) return
       isPlaying.value = false
       isPaused.value = false
       currentTime.value = 0
     })
   } catch (e) {
+    if (e.response?.status === 404 || e.response?.data?.detail?.includes('not found')) {
+      fileMissing.value = true
+    }
     console.error('Failed to load audio:', e)
-    await window.$modal.alert('Failed to load recording', 'Error')
   } finally {
     isLoading.value = false
   }
@@ -114,6 +136,7 @@ function stop() {
 function closeModal() {
   if (audio) {
     audio.pause()
+    audio.src = ''
     audio = null
   }
   isPlaying.value = false
@@ -192,7 +215,10 @@ function handleSeek(event) {
             <span v-if="isTranscribing" class="transcribing-indicator">{{ t('player.transcribing') || 'Transcribing...' }}</span>
           </div>
           <div class="transcription-content">
-            <template v-if="transcription">{{ transcription }}</template>
+            <template v-if="fileMissing">
+              <span class="no-transcription" style="color: var(--danger);">Recording file not found - cannot transcribe</span>
+            </template>
+            <template v-else-if="transcription">{{ transcription }}</template>
             <template v-else-if="!isTranscribing && !transcription">
               <span class="no-transcription">{{ t('player.noTranscription') || 'No transcription available' }}</span>
             </template>

@@ -18,14 +18,32 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from contextlib import contextmanager
+from contextlib import contextmanager, asynccontextmanager
 
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Recording Management System")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    with get_db() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                token TEXT UNIQUE NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+    init_db()
+    yield
+
+
+app = FastAPI(title="Recording Management System", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -173,19 +191,6 @@ class Recording(BaseModel):
     end_time: str
     duration: int
 
-@app.on_event("startup")
-def startup():
-    with get_db() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS tokens (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                token TEXT UNIQUE NOT NULL,
-                expires_at TIMESTAMP NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            )
-        """)
-    init_db()
 
 @app.post("/api/login")
 def login(request: LoginRequest):

@@ -1,0 +1,18 @@
+[database]
+filename = "recording_management.db"
+
+[verba]
+host = "https://mst-vfc.verint.training"
+api_key = "D466035F-CE26-4E6A-BD4E-891A3BD58807"
+username = "jonnytaodemo"
+password = "Jun@7895123"
+
+[asr]
+api_url = "https://open.bigmodel.cn/api/paas/v4/audio/transcriptions"
+api_key = "c660899f0ae74d6391059e4683a6ffe9.hAtP5SQGPPucjeI1"
+model = "glm-asr-2512"
+
+[llm]
+base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+api_key = "sk-79bf4a6d9e304b059a67a6db843a5ed4"
+model = "qwen-flash"

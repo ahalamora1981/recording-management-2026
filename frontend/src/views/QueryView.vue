@@ -4,12 +4,13 @@ import axios from 'axios'
 import AudioPlayer from '../components/AudioPlayer.vue'
 import { useI18n } from '../composables/useI18n'
 import { useTheme } from '../composables/useTheme'
+import appConfig from '../config.js'
 
-const API_URL = '/api'
+const API_URL = appConfig.apiUrl
 const { t } = useI18n()
 useTheme()
 
-const token = localStorage.getItem('token')
+const token = ref(localStorage.getItem('token'))
 
 const queryForm = ref({
   start_time: '',
@@ -29,17 +30,17 @@ const selectedIds = ref(new Set())
 
 const isSelectAll = ref(false)
 const currentPage = ref(1)
-const itemsPerPage = 10
+const itemsPerPage = appConfig.itemsPerPage
 
 const paginatedRecords = ref([])
+
+const totalPages = computed(() => Math.ceil(recordings.value.length / itemsPerPage))
 
 function updatePaginatedRecords() {
   const start = (currentPage.value - 1) * itemsPerPage
   const end = start + itemsPerPage
   paginatedRecords.value = recordings.value.slice(start, end)
 }
-
-const totalPages = computed(() => Math.ceil(recordings.value.length / itemsPerPage))
 
 const visiblePages = computed(() => {
   const pages = []
@@ -136,7 +137,7 @@ async function deleteSelected() {
   for (const ccrdId of idsToDelete) {
     try {
       await axios.delete(`${API_URL}/recordings/${ccrdId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token.value}` }
       })
       recordings.value = recordings.value.filter(r => r.ccrd_id !== ccrdId)
     } catch (err) {
@@ -206,22 +207,31 @@ function clearHistory() {
 }
 
 async function queryRecordings() {
+  if (!token.value) {
+    queryError.value = 'Not logged in'
+    return
+  }
+  
   queryError.value = ''
   isQuerying.value = true
   recordings.value = []
   selectedIds.value.clear()
   currentPage.value = 1
+  
   try {
     const response = await axios.post(`${API_URL}/query`, queryForm.value, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token.value}` }
     })
+    
+    if (!response.data || response.data.length === 0) {
+      queryError.value = t('query.noRecordings')
+      return
+    }
+    
     recordings.value = response.data
     saveToHistory()
     updatePaginatedRecords()
     updateSelectAll()
-    if (response.data.length === 0) {
-      queryError.value = t('query.noRecordings')
-    }
   } catch (e) {
     queryError.value = e.response?.data?.detail || 'Query failed'
   } finally {
@@ -249,7 +259,7 @@ async function downloadRecording(ccrdId) {
   downloadingIds.value.add(ccrdId)
   try {
     const response = await axios.get(`${API_URL}/download/${ccrdId}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token.value}` },
       responseType: 'blob'
     })
     const blob = new Blob([response.data], { type: 'audio/mpeg' })
@@ -275,7 +285,7 @@ async function deleteRecording(ccrdId) {
     await window.$modal.confirm(t('query.confirmDelete'), t('query.delete'))
     try {
       await axios.delete(`${API_URL}/recordings/${ccrdId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token.value}` }
       })
       await queryRecordings()
     } catch (e) {
@@ -466,10 +476,11 @@ function isDownloaded(ccrdId) {
       </div>
       </div>
     
-    <AudioPlayer
+    <AudioPlayer 
       :show="showPlayer" 
       :recording="currentRecording" 
       :ccrd-id="currentRecording?.ccrd_id"
+      :auto-transcribe="appConfig.autoTranscribe"
       @close="closePlayer"
       @stop="stopPlayback"
       @transcribed="onTranscribed"

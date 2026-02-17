@@ -4,13 +4,14 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useI18n } from '../composables/useI18n'
 import { useTheme } from '../composables/useTheme'
+import appConfig from '../config.js'
 
 const router = useRouter()
-const API_URL = '/api'
+const API_URL = appConfig.apiUrl
 const { t } = useI18n()
 useTheme()
 
-const token = localStorage.getItem('token')
+const token = ref(localStorage.getItem('token'))
 const currentUserId = ref(parseInt(localStorage.getItem('userId') || '0'))
 const users = ref([])
 const newUserForm = ref({ username: '', password: '' })
@@ -28,11 +29,9 @@ async function fetchUsers() {
   loading.value = true
   try {
     const res = await axios.get(`${API_URL}/users`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token.value}` }
     })
-    console.log('API Response:', JSON.stringify(res.data))
     users.value = res.data
-    console.log('Users.value after assignment:', JSON.stringify(users.value))
   } catch (e) {
     console.error('Error fetching users:', e)
   } finally {
@@ -47,7 +46,7 @@ async function createUser() {
   }
   try {
     await axios.post(`${API_URL}/users`, newUserForm.value, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token.value}` }
     })
     newUserForm.value = { username: '', password: '' }
     await fetchUsers()
@@ -61,7 +60,7 @@ async function deleteUser(userId) {
     await window.$modal.confirm('Are you sure you want to delete this user?', 'Delete User')
     try {
       await axios.delete(`${API_URL}/users/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token.value}` }
       })
       await fetchUsers()
     } catch (e) {

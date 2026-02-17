@@ -4,9 +4,10 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useI18n } from '../composables/useI18n'
 import { useTheme } from '../composables/useTheme'
+import appConfig from '../config.js'
 
 const router = useRouter()
-const API_URL = '/api'
+const API_URL = appConfig.apiUrl
 const { t } = useI18n()
 useTheme()
 
