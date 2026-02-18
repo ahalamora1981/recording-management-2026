@@ -29,6 +29,7 @@ name = "backend"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "httpx" },
     { name = "loguru" },
     { name = "openai" },
     { name = "pydub" },
@@ -36,6 +37,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "openai", specifier = ">=2.21.0" },
     { name = "pydub", specifier = ">=0.25.1" },

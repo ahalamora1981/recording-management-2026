@@ -368,7 +368,8 @@ def query_vfc_recordings(request: QueryRequest, user: dict = Depends(verify_toke
             try:
                 parts = duration_str.split(':')
                 duration = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2]) if len(parts) == 3 else int(duration_str)
-            except:
+            except Exception as e:
+                logger.error(f"Error parsing duration {duration_str} for ccrd_id {ccrd_id}: {e}")
                 duration = 0
             
             recordings.append({
